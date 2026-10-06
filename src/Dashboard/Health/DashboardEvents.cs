@@ -21,6 +21,9 @@ public enum EventKind
 
     /// <summary>The traffic button was started or stopped.</summary>
     Traffic,
+
+    /// <summary>Something changed in the cluster the system runs in: its status file, a node, a pod, the AKS service.</summary>
+    Cluster,
 }
 
 public enum EventLevel
@@ -33,7 +36,10 @@ public enum EventLevel
 
 /// <summary>Something this page observed: when, where and in words.</summary>
 /// <param name="Environment">The environment; null for an event of the page itself.</param>
-/// <param name="Node">The node (its region, or its name), "Front Door", or the deployable for an event of all its nodes.</param>
+/// <param name="Node">
+/// The node (its region, or its name), "Front Door", or the deployable for an event of all its nodes; "cluster" or
+/// "AKS" for an event of the cluster view.
+/// </param>
 public sealed record DashboardEvent(DateTimeOffset At, EventKind Kind, EventLevel Level, string? Environment, string? Node, string Text);
 
 /// <summary>The last events this page observed since it was opened, newest first.</summary>

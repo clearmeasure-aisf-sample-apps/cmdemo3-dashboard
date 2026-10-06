@@ -361,4 +361,92 @@ public class TopologyParserTests
             ],
             errors);
     }
+
+    // ----- The cluster view: cluster and environments[].namespace -----
+
+    private const string ClusterTopology = """
+        {
+          "environments": [
+            { "name": "tdd", "namespace": "cmdemo3-tdd", "deployables": [] },
+            { "name": "uat", "namespace": " cmdemo3-uat ", "deployables": [] },
+            { "name": "prod", "deployables": [] }
+          ],
+          "cluster": {
+            "name": "aks-cmdemo3",
+            "statusUrl": "https://cmdemo3-cluster.20-225-155-175.sslip.io/cluster.json",
+            "serviceUrl": "https://raw.githubusercontent.com/example-org/cmdemo3-system/cluster-status/aks.json",
+            "links": { "portal": "https://portal.azure.com/#@tenant/resource/aks/overview",
+                       "workloads": "https://portal.azure.com/#@tenant/resource/aks/workloads",
+                       "futureLink": "not an address" },
+            "futureField": 1
+          }
+        }
+        """;
+
+    [Fact]
+    public void TheClusterAndTheNamespacesOfTheEnvironmentsAreRead()
+    {
+        var topology = Valid(ClusterTopology);
+
+        var cluster = topology.Cluster!;
+        Assert.Equal("aks-cmdemo3", cluster.Name);
+        Assert.Equal("https://cmdemo3-cluster.20-225-155-175.sslip.io/cluster.json", cluster.StatusUrl?.AbsoluteUri);
+        Assert.Equal("https://raw.githubusercontent.com/example-org/cmdemo3-system/cluster-status/aks.json", cluster.ServiceUrl?.AbsoluteUri);
+        Assert.Equal("https://portal.azure.com/#@tenant/resource/aks/overview", cluster.Links![LinkSet.Portal]?.AbsoluteUri);
+        Assert.Equal("https://portal.azure.com/#@tenant/resource/aks/workloads", cluster.Links[LinkSet.Workloads]?.AbsoluteUri);
+
+        // A key of links the page does not know is ignored, whatever its value.
+        Assert.Equal([LinkSet.Portal, LinkSet.Workloads], cluster.Links.Keys.Order());
+        Assert.Equal(["cmdemo3-tdd", "cmdemo3-uat", null], topology.Environments.Select(environment => environment.Namespace));
+    }
+
+    [Theory]
+    [InlineData("""{ "environments": [ { "name": "tdd" } ] }""")]
+    [InlineData("""{ "environments": [ { "name": "tdd", "namespace": null } ], "cluster": null }""")]
+    public void ATopologyWithoutAClusterHasNoneAndItsEnvironmentsNoNamespace(string json)
+    {
+        var topology = Valid(json);
+
+        Assert.Null(topology.Cluster);
+        Assert.Null(Assert.Single(topology.Environments).Namespace);
+    }
+
+    [Fact]
+    public void TheSampleShippedWithTheAppNamesNoCluster()
+    {
+        var topology = Valid(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "topology.sample.json")));
+
+        Assert.Null(topology.Cluster);
+        Assert.All(topology.Environments, environment => Assert.Null(environment.Namespace));
+    }
+
+    [Theory]
+    [InlineData("""{ "environments": [], "cluster": {} }""")]
+    [InlineData("""{ "environments": [], "cluster": { "name": 5, "statusUrl": null, "serviceUrl": null, "links": null } }""")]
+    [InlineData("""{ "environments": [], "cluster": { "links": "none" } }""")]
+    [InlineData("""{ "environments": [], "cluster": { "links": { "portal": null } } }""")]
+    public void EveryPartOfTheClusterIsOptional(string json)
+    {
+        Assert.Equal(new ClusterInfo(null), Valid(json).Cluster);
+    }
+
+    [Theory]
+    [InlineData("\"statusUrl\": \"cluster.json\"", "cluster.statusUrl: not an absolute http or https address.")]
+    [InlineData("\"statusUrl\": \"/cluster.json\"", "cluster.statusUrl: not an absolute http or https address.")]
+    [InlineData("\"serviceUrl\": \"ftp://example.net/aks.json\"", "cluster.serviceUrl: not an absolute http or https address.")]
+    [InlineData("\"serviceUrl\": 7", "cluster.serviceUrl: not an absolute http or https address.")]
+    [InlineData("\"links\": { \"portal\": \"portal.azure.com\" }", "cluster.links.portal: not an absolute http or https address.")]
+    [InlineData("\"links\": { \"workloads\": false }", "cluster.links.workloads: not an absolute http or https address.")]
+    public void AnAddressOfTheClusterThatIsNotOneIsAnError(string field, string error)
+    {
+        var errors = Invalid($$"""{ "environments": [], "cluster": { {{field}} } }""");
+
+        Assert.Equal(error, Assert.Single(errors));
+    }
+
+    [Fact]
+    public void AClusterThatIsNotAnObjectIsAnError()
+    {
+        Assert.Equal("cluster: not an object.", Assert.Single(Invalid("""{ "environments": [], "cluster": "aks-cmdemo3" }""")));
+    }
 }

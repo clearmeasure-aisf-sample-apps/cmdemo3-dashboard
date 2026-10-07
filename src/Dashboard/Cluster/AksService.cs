@@ -5,7 +5,7 @@ namespace Dashboard.Cluster;
 
 /// <summary>
 /// Azure's own facts about the AKS service: the content of the file at <c>cluster.serviceUrl</c> of the topology
-/// (<c>aks.json</c>), which a scheduled workflow publishes about every ten minutes. Slow by design: what Azure says,
+/// (<c>aks.json</c>), which a scheduled workflow publishes several times an hour (GitHub starts a ten-minute schedule every 10 to 45 minutes). Slow by design: what Azure says,
 /// next to what the cluster says about itself (<see cref="ClusterStatus"/>). Every part is optional.
 /// </summary>
 /// <param name="Generated">When the workflow read the facts from Azure: they are as of then.</param>
@@ -32,7 +32,7 @@ public sealed record AksService(
     public const string Succeeded = "Succeeded";
 
     /// <summary>The facts are old from this age on: the workflow that publishes them may not be running.</summary>
-    public static readonly TimeSpan OldAfter = TimeSpan.FromMinutes(30);
+    public static readonly TimeSpan OldAfter = TimeSpan.FromMinutes(90);
 
     public bool IsStopped => Is(PowerState, Stopped);
 

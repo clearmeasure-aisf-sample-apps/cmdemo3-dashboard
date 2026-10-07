@@ -202,7 +202,7 @@ public sealed record ClusterAssessment(ClusterState State, string Label, string 
                     ClusterState.Neutral,
                     "Not published",
                     "Azure's facts about the AKS service are not published yet",
-                    $"A scheduled workflow publishes them about every ten minutes; until its first run the address answers HTTP 404. {Again}");
+                    $"A scheduled workflow publishes them several times an hour; until its first run the address answers HTTP 404. {Again}");
             case SourceState.Malformed:
                 return new ClusterAssessment(ClusterState.Warning, "Unreadable", NotRead, Sentence(reading.Detail));
             case SourceState.Unavailable:

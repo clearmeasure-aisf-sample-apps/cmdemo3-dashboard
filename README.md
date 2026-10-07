@@ -128,7 +128,7 @@ topology" is pressed. The deployment writes the real file; the build does not kn
 | `deployables[].alivePath` | no | `/alive`. |
 | `deployables[].versionPath` | no | `/_version`. |
 | `deployables[].telemetryPath` | no, may be `null` | No calls per minute: the arrows show "–"; no process vitals and no trend lines. The nodes' own counts of the last minute (`/_telemetry`, see "Calls per minute"). |
-| `deployables[].trafficPaths` | no, may be `null` | The traffic button calls `/` only. |
+| `deployables[].trafficPaths` | no, may be `null` | The traffic button calls `/` only. An empty list says the deployable takes no generated traffic (a dashboard listed as a node). |
 | `deployables[].buildPath` | no, may be `null` | No "Code" card: nothing is read (see "Code"). |
 | `deployables[].links` | no | The Front Door tile's name is no link, and there is no "Requests in Logs" link. Keys: `frontDoor`, `logs`. |
 | `deployables[].nodes` | no | No node tiles. |
@@ -159,6 +159,16 @@ dashboard shows "The topology could not be read" with every reason and its place
 
 The version endpoint (`versionPath`) answers JSON such as `{"version":"2.4.21+0a1b2c3"}`; the tile shows the part
 before `+`. A node that stops answering keeps the last version it reported.
+
+### A dashboard as a node
+
+A system can have this page in more than one home (in its cluster, and outside it on a static-site platform that
+answers while the cluster does not). The topology may then list each dashboard as a deployable with one node: its
+address, `healthPath` and `alivePath` `/`, `versionPath` `/version.json` (the Build writes that file next to
+`index.html`), and an empty `trafficPaths`, so the traffic button leaves it alone. Each dashboard then checks the
+others like any node, with their version and pin; in the runtime view the site that serves the page you are looking
+at says "This page", and every other one shows its state, with the arrow from the browser carrying it. The checked
+site must let other origins read `/` and `/version.json`.
 
 ## Pinned versions: what Git says next to what runs
 
@@ -412,7 +422,7 @@ available whose pods do not answer, and a stopped cluster reports nothing at all
 | Source | Written by | How fresh |
 |---|---|---|
 | `statusUrl`, **live** | A collector inside the cluster: its nodes, namespaces, pods and volume claims. | Every `intervalSeconds` (15 s). |
-| `serviceUrl`, **slow** | A scheduled workflow: what Azure itself says about the AKS service. | About every ten minutes, and GitHub serves a copy that may be five minutes older. |
+| `serviceUrl`, **slow** | A scheduled workflow: what Azure itself says about the AKS service. | Several times an hour (a ten-minute schedule, which GitHub starts every 10 to 45 minutes), and GitHub serves a copy that may be five minutes older. |
 
 Both are read with every round of the page's checks (the interval of the header, and "Check now"): a `GET` with
 `cache: no-store`, no header of its own and the timeout of a node; there is no second timer. Both must allow every
@@ -471,8 +481,8 @@ something about the service (`availability`, `powerState` or `provisioningState`
 1. **AKS service** (Azure's facts): the verdict as the state with Azure's sentence, the power state, the provisioning
    state, the Kubernetes version, the tier, the region and the node pools (name, mode, count × size, OS disk, state);
    Azure Monitor's numbers as small meters (node CPU, memory and disk, API server CPU and memory) with the window they
-   are an average of; "as of 15:10:04 (5 min ago)" from `generated`, and a note when the facts are older than 30
-   minutes ("Azure's facts are 47 min old: the workflow that publishes them may not be running."). `links.portal` is
+   are an average of; "as of 15:10:04 (5 min ago)" from `generated`, and a note when the facts are older than 90
+   minutes ("Azure's facts are 2 h old: the workflow that publishes them may not be running."). `links.portal` is
    the link "AKS cluster in the Azure portal".
 2. **Cluster** (the live file): the state with what is wrong, then the sums: nodes ready, pods ready (finished jobs
    are in neither number and counted on their own), the pods the nodes run of how many they can take, all restarts,

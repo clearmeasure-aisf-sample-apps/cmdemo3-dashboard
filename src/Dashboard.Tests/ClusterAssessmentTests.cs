@@ -355,7 +355,7 @@ public class ClusterAssessmentTests
                 ClusterState.Neutral,
                 "Not published",
                 "Azure's facts about the AKS service are not published yet",
-                "A scheduled workflow publishes them about every ten minutes; until its first run the address answers HTTP 404. The page reads them again with every check."),
+                "A scheduled workflow publishes them several times an hour; until its first run the address answers HTTP 404. The page reads them again with every check."),
             assessment);
     }
 

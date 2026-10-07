@@ -131,10 +131,12 @@ public class ClusterTextTests
 
         Assert.Equal("as of 20:10:04 (5 min ago)", ClusterText.AsOf(read, read.AddMinutes(5).AddSeconds(26), TimeZoneInfo.Utc));
         Assert.Equal("as of 20:10:04 (just now)", ClusterText.AsOf(read, read.AddSeconds(20), TimeZoneInfo.Utc));
-        Assert.Null(ClusterText.OldFacts(service, read.AddMinutes(30)));
+        // GitHub starts the ten-minute schedule every 10 to 45 minutes: only facts older than 90 minutes are "old".
+        Assert.Null(ClusterText.OldFacts(service, read.AddMinutes(45)));
+        Assert.Null(ClusterText.OldFacts(service, read.AddMinutes(90)));
         Assert.Equal(
-            "Azure's facts are 45 min old: the workflow that publishes them may not be running.",
-            ClusterText.OldFacts(service, read.AddMinutes(45)));
+            "Azure's facts are 100 min old: the workflow that publishes them may not be running.",
+            ClusterText.OldFacts(service, read.AddMinutes(100)));
         Assert.Equal(
             "Azure's facts are 3 h old: the workflow that publishes them may not be running.",
             ClusterText.OldFacts(service, read.AddHours(3).AddMinutes(10)));

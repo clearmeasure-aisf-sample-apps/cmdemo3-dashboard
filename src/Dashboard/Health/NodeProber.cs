@@ -136,6 +136,20 @@ public sealed class NodeProber(HttpClient http, TimeProvider time)
     public Task<BuildInfo?> ReadBuildAsync(Uri baseAddress, string buildPath, CancellationToken cancellationToken) =>
         ReadAsync(ProbeUrl.Combine(baseAddress, buildPath), BuildInfo.Parse, cancellationToken);
 
+    /// <summary>
+    /// The build of the dashboard itself (<see cref="BuildInfo"/>): a file of its own site, read from the page's own
+    /// address (the path is taken from the site's root, as <c>topology.json</c> is, whatever it starts with; an
+    /// address of another site is not read). A courtesy like a node's build: no file, or anything but the expected
+    /// JSON, is no build facts.
+    /// </summary>
+    public Task<BuildInfo?> ReadOwnBuildAsync(string buildPath, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(buildPath);
+        return Uri.TryCreate(buildPath.TrimStart('/'), UriKind.Relative, out var address)
+            ? ReadAsync(address, BuildInfo.Parse, cancellationToken)
+            : Task.FromResult<BuildInfo?>(null);
+    }
+
     /// <summary>The system's delivery facts (<see cref="DeliveryReport"/>), from the address the topology gives.</summary>
     public Task<DeliveryReport?> ReadDeliveryAsync(Uri address, CancellationToken cancellationToken) =>
         ReadAsync(address, DeliveryReport.Parse, cancellationToken);
@@ -143,6 +157,10 @@ public sealed class NodeProber(HttpClient http, TimeProvider time)
     /// <summary>What the system cost in Azure (<see cref="CostReport"/>), from the address the topology gives.</summary>
     public Task<CostReport?> ReadCostAsync(Uri address, CancellationToken cancellationToken) =>
         ReadAsync(address, CostReport.Parse, cancellationToken);
+
+    /// <summary>The system's deployments in flight (<see cref="DeploymentsReport"/>), from the address the topology gives.</summary>
+    public Task<DeploymentsReport?> ReadDeploymentsAsync(Uri address, CancellationToken cancellationToken) =>
+        ReadAsync(address, DeploymentsReport.Parse, cancellationToken);
 
     /// <summary>An optional JSON answer, read with the node's timeout: null whenever it cannot be read.</summary>
     private async Task<T?> ReadAsync<T>(Uri address, Func<string?, T?> parse, CancellationToken cancellationToken)

@@ -64,6 +64,11 @@
                 }
             </select>
         </label>
+        @* While generated traffic runs the page checks more often than the interval says: said here, next to it. *@
+        @if (TrafficPlan.IntervalNote(_trafficRunning, _poller.Interval) is { } faster)
+        {
+            <span class="field__note" role="status">@faster</span>
+        }
         <label class="field">
             <span>Probe</span>
             <select value="@_probe" title="@ProbeHelp" aria-describedby="probe-help" @onchange="OnProbeChanged">
@@ -113,6 +118,7 @@
         foreach (var environment in monitor.Environments)
         {
             var environmentId = $"env-{environmentIndex++}";
+            var deploying = monitor.DeploymentMarks(environment.Name, environment.Deployables.Select(deployable => deployable.Info.Name), Time.GetUtcNow());
             <section class="environment" aria-labelledby="@environmentId">
                 <header class="environment__header">
                     <h2 id="@environmentId">@environment.Name</h2>
@@ -121,6 +127,8 @@
                         <span class="chip">@tier</span>
                     }
                     <EnvironmentLinks Links="environment.Info.Links" Environment="@environment.Name" />
+                    @* What is being deployed to the environment, first: there only with the deployments file, and while it names one. *@
+                    <DeploymentMarks Marks="deploying" Label="@($"Deployments to {environment.Name}")" Generated="monitor.Deployments?.Generated" Zone="Zone" />
                     @if (monitor.Cost is { } environmentCost && environmentCost.Find(environment.Name) is { } spent)
                     {
                         <CostLine Report="environmentCost" Amounts="spent.Amounts" Services="spent.TopServices" Estimate="spent.Estimate" Now="Time.GetUtcNow()" />
@@ -141,13 +149,16 @@
                 @foreach (var deployable in environment.Deployables)
                 {
                     <DeployableSection @key="deployable" Deployable="deployable" Environment="environment" Zone="Zone"
-                                       Monitor="monitor" Now="Time.GetUtcNow()" IdPrefix="@($"{environmentId}-app-{deployableIndex++}")" />
+                                       Monitor="monitor" Now="Time.GetUtcNow()" IdPrefix="@($"{environmentId}-app-{deployableIndex++}")"
+                                       Deployments="deploying" />
                 }
                 <EnvironmentDelivery Monitor="monitor" Environment="environment" IdPrefix="@environmentId" Zone="Zone" Now="Time.GetUtcNow()" />
             </section>
         }
 
         <SharedCost Monitor="monitor" Now="Time.GetUtcNow()" />
+        @* The dashboard's own build, after the environments: there only when the topology names its build facts. *@
+        <DashboardCode Monitor="monitor" Heading="true" IdPrefix="self" Zone="Zone" Now="Time.GetUtcNow()" />
     }
     else if (_errors is { } errors)
     {
@@ -176,7 +187,8 @@
 @if (_monitor is { } trafficMonitor)
 {
     <EventsStrip Events="_events" Monitor="trafficMonitor" Opened="_opened" Zone="Zone" Now="Time.GetUtcNow()" />
-    <TrafficPanel Monitor="trafficMonitor" Environment="@(_address.Environment ?? _runtimeEnvironment)" CheckNow="CheckNow" Time="Time" Events="_events" />
+    <TrafficPanel Monitor="trafficMonitor" Environment="@(_address.Environment ?? _runtimeEnvironment)" CheckNow="CheckNow" Time="Time" Events="_events"
+                  RunningChanged="OnTrafficRunningChanged" />
 }
 
 <footer class="page-footer">
@@ -234,6 +246,7 @@
     private DotNetObjectReference<App>? _self;
     private ViewAddress _address = ViewAddress.Health;
     private string? _runtimeEnvironment;
+    private bool _trafficRunning;
 
     private TimeZoneInfo Zone => Time.LocalTimeZone;
 
@@ -386,6 +399,9 @@
 
             _monitor = result.Topology is { } topology ? new DashboardMonitor(topology, Prober, Versions, Time, _events, ClusterFiles) : null;
             _errors = result.Topology is null ? result.Errors : null;
+
+            // Without a topology the page has no traffic panel, and what it sent has stopped with it.
+            _trafficRunning = _trafficRunning && _monitor is not null;
             if (_monitor is { } monitor)
             {
                 monitor.Changed += OnMonitorChanged;
@@ -402,6 +418,9 @@
         await LoadTopologyAsync();
         _poller.CheckNow();
     }
+
+    /// <summary>Called by the traffic panel when its traffic starts and when it ends.</summary>
+    private void OnTrafficRunningChanged(bool running) => _trafficRunning = running;
 
     private void OnMonitorChanged() => _ = InvokeAsync(StateHasChanged);
 
